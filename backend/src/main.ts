@@ -10,6 +10,7 @@ import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket
 import PostgreSQLAdapter from "./automerge/PostgreSQLAdapter";
 import os from "os";
 import dotenv from "dotenv";
+import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
 
 // Load environment variables
 dotenv.config();
@@ -34,7 +35,10 @@ const websocket = new WebSocketServer({ noServer: true }).on(
 const network = new NodeWSServerAdapter(
   websocket
 ) as unknown as NetworkAdapterInterface;
+
 const storage = new PostgreSQLAdapter();
+// const storage = new NodeFSStorageAdapter(".amrd");
+
 const peerId = `storage-server-${os.hostname()}`;
 
 storage.save(["storage-adapter-id"], Uint8Array.from(peerId));

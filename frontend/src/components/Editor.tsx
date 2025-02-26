@@ -33,8 +33,6 @@ export default function Editor({ docUrl }: { docUrl: AnyDocumentId }) {
     onBeforeCreate: ({ editor }) => {
       if (handle) {
         handle.on("change", (docHandle) => {
-          console.log("Il documento è cambiato!");
-
           editor.commands.setContent(
             docHandle.doc.data,
             false,

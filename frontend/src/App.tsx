@@ -14,9 +14,10 @@ import {
   Divider,
   Flex,
   Image,
+  Menu,
   Modal,
   ScrollArea,
-  TextInput
+  TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
@@ -26,8 +27,10 @@ import Editor from "./components/Editor";
 import IndexedDBHelper, { FileEntry } from "./helpers/idb.helper";
 import RepoHelper from "./helpers/repo.helper";
 import { RichText } from "./model/rich-text";
+import { saveFile } from "./helpers/file.helper";
 
 export default function App() {
+  const [selectedFileName, setSelectedFileName] = useState<string>();
   const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 
   const repo = useRepo();
@@ -37,12 +40,17 @@ export default function App() {
   // Input
   const [fileName, setFileName] = useState("");
 
+  // Menu
+  const [opened, setOpened] = useState(false);
+
   // Modal
   const [isCreateOpened, { open: openCreateModal, close: closeCreateModal }] =
     useDisclosure(false);
   const [isLoadOpened, { open: openLoadModal, close: closeLoadModal }] =
     useDisclosure(false);
   const [isCollabOpened, { open: openCollabModal, close: closeCollabModal }] =
+    useDisclosure(false);
+  const [isSaveOpened, { open: openSaveModal, close: closeSaveModal }] =
     useDisclosure(false);
 
   // Carico chiavi salvate
@@ -66,30 +74,106 @@ export default function App() {
         direction="column"
         mt="1rem"
       >
-        <Flex dir="row" gap="md" justify={"center"} align={"center"}>
+        <Flex
+          w="80%"
+          dir="row"
+          gap="md"
+          justify={"space-between"}
+          align={"center"}
+        >
           <Image src={logo} h="3rem" fit="contain" />
-          <h1>LoFi Text Editor</h1>
+          <h1 style={{ marginRight: "auto" }}>LoFi Text Editor</h1>
+          <Menu opened={opened} onChange={setOpened}>
+            <Menu.Target>
+              <Button variant="subtle">
+                <i className="fa fa-bars" style={{ fontSize: "1.4rem" }} />
+              </Button>
+            </Menu.Target>
+
+            <Menu.Dropdown w={"20%"}>
+              <Menu.Label>Applicazione</Menu.Label>
+              <Menu.Item
+                onClick={openCreateModal}
+                leftSection={<i className="fa fa-circle-plus"></i>}
+              >
+                Nuovo
+              </Menu.Item>
+              <Menu.Item
+                onClick={openLoadModal}
+                leftSection={<i className="fa fa-upload"></i>}
+              >
+                Carica
+              </Menu.Item>
+              <Menu.Item
+                onClick={openCollabModal}
+                leftSection={<i className="fa fa-users"></i>}
+              >
+                Collabora
+              </Menu.Item>
+
+              {documentId && (
+                <>
+                  <Menu.Label>Documento</Menu.Label>
+                  <Menu.Item
+                    onClick={() => {
+                      const handle = repo.find<RichText>(documentId);
+                      handle.whenReady().then(() => {
+                        handle.doc().then((doc) => {
+                          const data = JSON.stringify(doc?.data, null, 2);
+
+                          const blob = new Blob(
+                            [data.substring(1, data.length - 1)],
+                            { type: "application/md" }
+                          );
+
+                          saveFile(`${selectedFileName!}.md`, blob);
+                        });
+                      });
+                    }}
+                    leftSection={<i className="fa fa-download"></i>}
+                  >
+                    Scarica
+                  </Menu.Item>
+                  <Menu.Item
+                    color="red"
+                    onClick={() => {
+                      setDocumentId(undefined);
+                      RepoHelper.removeById(documentId as DocumentId);
+                      IndexedDBHelper.remove(selectedFileName!);
+                    }}
+                    leftSection={<i className="fa fa-trash"></i>}
+                  >
+                    Elimina
+                  </Menu.Item>
+                </>
+              )}
+            </Menu.Dropdown>
+          </Menu>
         </Flex>
         <Divider w={"90%"} mb="2rem" />
-        <Flex dir="row" gap="md">
-          <Button variant="gradient" onClick={openCreateModal}>
-            <i className="fa fa-circle-plus"></i>
-            Nuovo
-          </Button>
-          <Button variant="gradient" onClick={openLoadModal}>
-            <i className="fa fa-upload"></i>
-            Carica
-          </Button>
-          <Button variant="gradient" onClick={openCollabModal}>
-            <i className="fa fa-users"></i>
-            Collabora
-          </Button>
-        </Flex>
-
         {documentId && (
-          <Flex w="90%" my="1rem" direction="column">
-            <Editor docUrl={documentId} />
-          </Flex>
+          <>
+            <Flex direction={"row"} w={"100%"} justify={"space-between"}>
+              <small style={{ marginRight: "auto", marginLeft: "5%" }}>
+                {selectedFileName ? (
+                  `${selectedFileName}.md`
+                ) : (
+                  <Flex
+                    direction={"row"}
+                    justify={"center"}
+                    align={"center"}
+                    gap={"sm"}
+                  >
+                    <p>File non salvato!</p>
+                    <a className="save" onClick={openSaveModal}>Salva ora</a>
+                  </Flex>
+                )}
+              </small>
+            </Flex>
+            <Flex w="90%" my="1rem" direction="column">
+              <Editor docUrl={documentId} />
+            </Flex>
+          </>
         )}
       </Flex>
 
@@ -115,6 +199,7 @@ export default function App() {
               alert(error);
             });
 
+            setSelectedFileName(fileName);
             closeCreateModal();
           }}
         >
@@ -137,6 +222,7 @@ export default function App() {
               onClick={() => {
                 if (isValidDocumentId(entry.docId as string)) {
                   setDocumentId(entry.docId);
+                  setSelectedFileName(entry.fileName);
                   closeLoadModal();
                 } else {
                   alert("Documento non valido");
@@ -170,20 +256,26 @@ export default function App() {
         {documentId && (
           <>
             <p>Per collaborare condividi il seguente URL:</p>
-            <Flex w={"100%"} mb="lg" justify={"space-between"} align={"center"}>
-              <Code py="0.5rem" w="70%">
+            <Flex
+              w={"100%"}
+              mb="lg"
+              justify={"space-between"}
+              align={"center"}
+              gap="sm"
+            >
+              <Code py="0.5rem" w="100%">
                 {stringifyAutomergeUrl(documentId as DocumentId)}
               </Code>
               <CopyButton
                 value={stringifyAutomergeUrl(documentId as DocumentId)}
               >
                 {({ copied, copy }) => (
-                  <Button
-                    h="2rem"
-                    color={copied ? "teal" : "blue"}
-                    onClick={copy}
-                  >
-                    {copied ? "Copiato" : "Copia URL"}
+                  <Button h="2rem" onClick={copy} variant="gradient">
+                    {copied ? (
+                      <i className="fa fa-check"></i>
+                    ) : (
+                      <i className="fa fa-copy"></i>
+                    )}
                   </Button>
                 )}
               </CopyButton>
@@ -219,6 +311,33 @@ export default function App() {
           }}
         >
           Join
+        </Button>
+      </Modal>
+
+      {/* SALVA DOCUMENTO APERTO*/}
+      <Modal opened={isSaveOpened} onClose={closeSaveModal} title="Salva">
+        <TextInput
+          label="Nome File"
+          placeholder="ISEE 2024"
+          value={fileName}
+          onChange={(event) => setFileName(event.currentTarget.value)}
+        />
+        <Button
+          w="100%"
+          mt="sm"
+          onClick={() => {
+            IndexedDBHelper.store({
+              fileName: fileName,
+              docId: documentId!,
+            }).catch((error) => {
+              alert(error);
+            });
+
+            setSelectedFileName(fileName);
+            closeSaveModal();
+          }}
+        >
+          Crea
         </Button>
       </Modal>
     </>
