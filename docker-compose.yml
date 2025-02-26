@@ -1,0 +1,36 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - default
+
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - default
+
+  database:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: automerge
+      POSTGRES_PASSWORD: automerge2025
+      POSTGRES_DB: automerge
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+    networks:
+      - default
+
+networks:
+  default:
