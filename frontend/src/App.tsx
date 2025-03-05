@@ -17,6 +17,7 @@ import {
   Menu,
   Modal,
   ScrollArea,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
@@ -28,8 +29,11 @@ import IndexedDBHelper, { FileEntry } from "./helpers/idb.helper";
 import RepoHelper from "./helpers/repo.helper";
 import { RichText } from "./model/rich-text";
 import { saveFile } from "./helpers/file.helper";
+import { useAuth } from "react-oidc-context";
 
 export default function App() {
+  const { user, isAuthenticated, signinPopup, signoutRedirect } = useAuth();
+
   const [selectedFileName, setSelectedFileName] = useState<string>();
   const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 
@@ -83,72 +87,84 @@ export default function App() {
         >
           <Image src={logo} h="3rem" fit="contain" />
           <h1 style={{ marginRight: "auto" }}>LoFi Text Editor</h1>
-          <Menu opened={opened} onChange={setOpened}>
-            <Menu.Target>
-              <Button variant="subtle">
-                <i className="fa fa-bars" style={{ fontSize: "1.4rem" }} />
+          {isAuthenticated ? (
+            <>
+              <Text>Ciao {user?.profile.given_name}!</Text>
+              <Button onClick={() => signoutRedirect()} variant="gradient">
+                Logout
               </Button>
-            </Menu.Target>
+              <Menu opened={opened} onChange={setOpened}>
+                <Menu.Target>
+                  <Button variant="subtle">
+                    <i className="fa fa-bars" style={{ fontSize: "1.4rem" }} />
+                  </Button>
+                </Menu.Target>
 
-            <Menu.Dropdown w={"20%"}>
-              <Menu.Label>Applicazione</Menu.Label>
-              <Menu.Item
-                onClick={openCreateModal}
-                leftSection={<i className="fa fa-circle-plus"></i>}
-              >
-                Nuovo
-              </Menu.Item>
-              <Menu.Item
-                onClick={openLoadModal}
-                leftSection={<i className="fa fa-upload"></i>}
-              >
-                Carica
-              </Menu.Item>
-              <Menu.Item
-                onClick={openCollabModal}
-                leftSection={<i className="fa fa-users"></i>}
-              >
-                Collabora
-              </Menu.Item>
-
-              {documentId && (
-                <>
-                  <Menu.Label>Documento</Menu.Label>
+                <Menu.Dropdown w={"20%"}>
+                  <Menu.Label>Applicazione</Menu.Label>
                   <Menu.Item
-                    onClick={() => {
-                      const handle = repo.find<RichText>(documentId);
-                      handle.whenReady().then(() => {
-                        handle.doc().then((doc) => {
-                          const data = JSON.stringify(doc?.data, null, 2);
-
-                          const blob = new Blob(
-                            [data.substring(1, data.length - 1)],
-                            { type: "application/md" }
-                          );
-
-                          saveFile(`${selectedFileName!}.md`, blob);
-                        });
-                      });
-                    }}
-                    leftSection={<i className="fa fa-download"></i>}
+                    onClick={openCreateModal}
+                    leftSection={<i className="fa fa-circle-plus"></i>}
                   >
-                    Scarica
+                    Nuovo
                   </Menu.Item>
                   <Menu.Item
-                    color="red"
-                    onClick={() => {
-                      setDocumentId(undefined);
-                      RepoHelper.removeById(documentId as DocumentId);
-                      IndexedDBHelper.remove(selectedFileName!);
-                    }}
-                    leftSection={<i className="fa fa-trash"></i>}
+                    onClick={openLoadModal}
+                    leftSection={<i className="fa fa-upload"></i>}
                   >
-                    Elimina
+                    Carica
                   </Menu.Item>
-                </>
-              )}
-            </Menu.Dropdown>
-          </Menu>
+                  <Menu.Item
+                    onClick={openCollabModal}
+                    leftSection={<i className="fa fa-users"></i>}
+                  >
+                    Collabora
+                  </Menu.Item>
+
+                  {documentId && (
+                    <>
+                      <Menu.Label>Documento</Menu.Label>
+                      <Menu.Item
+                        onClick={() => {
+                          const handle = repo.find<RichText>(documentId);
+                          handle.whenReady().then(() => {
+                            handle.doc().then((doc) => {
+                              const data = JSON.stringify(doc?.data, null, 2);
+
+                              const blob = new Blob(
+                                [data.substring(1, data.length - 1)],
+                                { type: "application/md" }
+                              );
+
+                              saveFile(`${selectedFileName!}.md`, blob);
+                            });
+                          });
+                        }}
+                        leftSection={<i className="fa fa-download"></i>}
+                      >
+                        Scarica
+                      </Menu.Item>
+                      <Menu.Item
+                        color="red"
+                        onClick={() => {
+                          setDocumentId(undefined);
+                          RepoHelper.removeById(documentId as DocumentId);
+                          IndexedDBHelper.remove(selectedFileName!);
+                        }}
+                        leftSection={<i className="fa fa-trash"></i>}
+                      >
+                        Elimina
+                      </Menu.Item>
+                    </>
+                  )}
+                </Menu.Dropdown>
+              </Menu>
+            </>
+          ) : (
+            <Button onClick={() => signinPopup()} variant="gradient">
+              Login
+            </Button>
+          )}
         </Flex>
         <Divider w={"90%"} mb="2rem" />
         {documentId && (
@@ -165,7 +181,9 @@ export default function App() {
                     gap={"sm"}
                   >
                     <p>File non salvato!</p>
-                    <a className="save" onClick={openSaveModal}>Salva ora</a>
+                    <a className="save" onClick={openSaveModal}>
+                      Salva ora
+                    </a>
                   </Flex>
                 )}
               </small>
