@@ -15,7 +15,7 @@ export default class PostgreSQLAdapter implements StorageAdapterInterface {
   }
 
   async load(key: StorageKey): Promise<Uint8Array | undefined> {
-    console.log("Loading document with key", key);
+    // console.log("Loading document with key", key);
 
     const documentKey: string = key.join("/");
 
@@ -25,13 +25,13 @@ export default class PostgreSQLAdapter implements StorageAdapterInterface {
       },
     });
 
-    console.log(`Docuement with key ${key} loaded: ${document}`);
+    // console.log(`Docuement with key ${key} loaded!`);
 
     return document === null ? undefined : document.value;
   }
 
   async save(key: StorageKey, data: Uint8Array): Promise<void> {
-    console.log("Saving document with key", key);
+    // console.log("Saving document with key", key);
 
     const documentKey: string = key.join("/");
 
@@ -50,7 +50,7 @@ export default class PostgreSQLAdapter implements StorageAdapterInterface {
   }
 
   async remove(key: StorageKey): Promise<void> {
-    console.log("Removing document with key", key);
+    // console.log("Removing document with key", key);
 
     const documentKey: string = key.join("/");
 
@@ -60,7 +60,7 @@ export default class PostgreSQLAdapter implements StorageAdapterInterface {
   }
 
   async loadRange(keyPrefix: StorageKey): Promise<Chunk[]> {
-    console.log("Loading documents with key prefix", keyPrefix);
+    // console.log("Loading documents with key prefix", keyPrefix);
 
     const documents = await this.prismaClient.document.findMany({
       where: {
@@ -79,7 +79,7 @@ export default class PostgreSQLAdapter implements StorageAdapterInterface {
   }
 
   async removeRange(keyPrefix: StorageKey): Promise<void> {
-    console.log("Removing documents with key prefix", keyPrefix);
+    // console.log("Removing documents with key prefix", keyPrefix);
 
     await this.prismaClient.document.deleteMany({
       where: {

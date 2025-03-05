@@ -5,8 +5,9 @@ import {
   Repo,
   StorageAdapterInterface,
 } from "@automerge/automerge-repo";
-import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+
 import { IndexedDBStorageAdapter } from "@automerge/automerge-repo-storage-indexeddb";
+import { SocketIOClientAdapter } from "../network/SocketIOClientAdapter";
 
 export default class RepoHelper {
   private static repo: Repo;
@@ -16,12 +17,7 @@ export default class RepoHelper {
 
   static initialize() {
     this.storage = new IndexedDBStorageAdapter();
-
-    // Local
-    this.network = new BrowserWebSocketClientAdapter(
-      "ws://localhost:3000"
-    ) as unknown as NetworkAdapterInterface;
-
+    this.network = new SocketIOClientAdapter("http://localhost:3000");
     this.repo = new Repo({
       network: [this.network],
       storage: this.storage,
