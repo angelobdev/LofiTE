@@ -8,6 +8,7 @@ import {
 } from "@automerge/automerge-repo";
 import { useRepo } from "@automerge/automerge-repo-react-hooks";
 import {
+  Avatar,
   Button,
   Code,
   CopyButton,
@@ -17,19 +18,18 @@ import {
   Menu,
   Modal,
   ScrollArea,
-  Text,
   TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useEffect, useState } from "react";
+import { useAuth } from "react-oidc-context";
 import "./App.css";
 import logo from "./assets/automerge.png";
 import Editor from "./components/Editor";
-import { useAuth } from "react-oidc-context";
-import IndexedDBHelper, { FileEntry } from "./helpers/IndexedDBHelper";
-import { RichText } from "./model/RichText";
 import { saveFile } from "./helpers/FileHelper";
+import IndexedDBHelper, { FileEntry } from "./helpers/IndexedDBHelper";
 import RepoHelper from "./helpers/RepoHelper";
+import { RichText } from "./model/RichText";
 
 export default function App() {
   const { user, isAuthenticated, signinPopup, signoutRedirect } = useAuth();
@@ -45,7 +45,8 @@ export default function App() {
   const [fileName, setFileName] = useState("");
 
   // Menu
-  const [opened, setOpened] = useState(false);
+  const [menuOpened, setMenuOpened] = useState(false);
+  const [profileOpened, setProfileOpened] = useState(false);
 
   // Modal
   const [isCreateOpened, { open: openCreateModal, close: closeCreateModal }] =
@@ -89,11 +90,24 @@ export default function App() {
           <h1 style={{ marginRight: "auto" }}>LoFi Text Editor</h1>
           {isAuthenticated ? (
             <>
-              <Text>Ciao {user?.profile.given_name}!</Text>
-              <Button onClick={() => signoutRedirect()} variant="gradient">
-                Logout
-              </Button>
-              <Menu opened={opened} onChange={setOpened}>
+              <Menu opened={profileOpened} onChange={setProfileOpened}>
+                <Menu.Target>
+                  <Avatar src={null} style={{ cursor: "pointer" }}></Avatar>
+                </Menu.Target>
+
+                <Menu.Dropdown w={"20%"}>
+                  <Menu.Label>Ciao {user?.profile.given_name}!</Menu.Label>
+                  <Menu.Item
+                    color="red"
+                    onClick={() => signoutRedirect()}
+                    leftSection={<i className="fa fa-right-from-bracket"></i>}
+                  >
+                    Logout
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+
+              <Menu opened={menuOpened} onChange={setMenuOpened}>
                 <Menu.Target>
                   <Button variant="subtle">
                     <i className="fa fa-bars" style={{ fontSize: "1.4rem" }} />
