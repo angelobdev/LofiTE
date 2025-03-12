@@ -29,6 +29,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - ./database/data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - default
 
@@ -45,7 +46,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://database:5432/${POSTGRES_DB}
+      KC_DB_URL: jdbc:postgresql://database:5432/${POSTGRES_KC_DB}
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:

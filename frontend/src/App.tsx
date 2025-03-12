@@ -25,11 +25,11 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import logo from "./assets/automerge.png";
 import Editor from "./components/Editor";
-import IndexedDBHelper, { FileEntry } from "./helpers/idb.helper";
-import RepoHelper from "./helpers/repo.helper";
-import { RichText } from "./model/rich-text";
-import { saveFile } from "./helpers/file.helper";
 import { useAuth } from "react-oidc-context";
+import IndexedDBHelper, { FileEntry } from "./helpers/IndexedDBHelper";
+import { RichText } from "./model/RichText";
+import { saveFile } from "./helpers/FileHelper";
+import RepoHelper from "./helpers/RepoHelper";
 
 export default function App() {
   const { user, isAuthenticated, signinPopup, signoutRedirect } = useAuth();

@@ -10,7 +10,7 @@ import Underline from "@tiptap/extension-underline";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useState } from "react";
-import { RichText } from "../model/rich-text";
+import { RichText } from "../model/RichText";
 import * as Automerge from "@automerge/automerge/next";
 
 export default function Editor({ docUrl }: { docUrl: AnyDocumentId }) {
