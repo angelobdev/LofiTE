@@ -6,13 +6,14 @@ import {
 } from "@automerge/automerge-repo/slim";
 import io, { Socket } from "socket.io-client";
 import {
-  JoinMessage,
   FromClientMessage,
-  LeaveMessage,
   FromServerMessage,
-  isPeerMessage,
   isErrorMessage,
+  isPeerMessage,
+  JoinMessage,
+  LeaveMessage,
 } from "./SocketIOMessages";
+import Keycloak from "keycloak-js";
 
 export class SocketIOClientAdapter extends NetworkAdapter {
   private socket: typeof Socket;
@@ -20,9 +21,19 @@ export class SocketIOClientAdapter extends NetworkAdapter {
 
   private remotePeerId?: PeerId; // this adapter only connects to one remote client at a time
 
-  constructor(url: string) {
+  constructor(url: string, keycloak: Keycloak) {
     super();
-    this.socket = io(url);
+
+    console.log("Init with token: " + keycloak.token);
+
+    // Init socket with no token
+    this.socket = io(url, {
+      transports: ["polling"],
+      auth: {
+        token: keycloak.token,
+      },
+    });
+
     this.isReady = false;
   }
 

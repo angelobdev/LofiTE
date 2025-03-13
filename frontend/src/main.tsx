@@ -7,6 +7,7 @@ import ReactDOM from "react-dom/client";
 import { AuthProvider, AuthProviderProps } from "react-oidc-context";
 import App from "./App.tsx";
 import RepoHelper from "./helpers/RepoHelper.ts";
+import Keycloak from "keycloak-js";
 
 const keycloakConfig: AuthProviderProps = {
   authority: "http://localhost:8080/realms/lofite",
@@ -19,16 +20,33 @@ const keycloakConfig: AuthProviderProps = {
 
 const theme = createTheme({});
 
-RepoHelper.initialize();
+const keycloak = new Keycloak({
+  url: "http://localhost:8080",
+  realm: "lofite",
+  clientId: "react-client",
+});
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <AuthProvider {...keycloakConfig}>
-      <RepoContext.Provider value={RepoHelper.getRepo()}>
-        <MantineProvider theme={theme}>
-          <App />
-        </MantineProvider>
-      </RepoContext.Provider>
-    </AuthProvider>
-  </React.StrictMode>
-);
+try {
+  keycloak.init({ onLoad: "login-required" }).then((authenticated) => {
+    if (!authenticated) {
+      console.error("Failed to authenticate");
+      return;
+    }
+
+    RepoHelper.initialize(keycloak);
+
+    ReactDOM.createRoot(document.getElementById("root")!).render(
+      <React.StrictMode>
+        <AuthProvider {...keycloakConfig}>
+          <RepoContext.Provider value={RepoHelper.getRepo()}>
+            <MantineProvider theme={theme}>
+              <App />
+            </MantineProvider>
+          </RepoContext.Provider>
+        </AuthProvider>
+      </React.StrictMode>
+    );
+  });
+} catch (error) {
+  console.error("Failed to initialize keycloak:", error);
+}

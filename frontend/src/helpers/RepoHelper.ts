@@ -8,6 +8,7 @@ import {
 
 import { IndexedDBStorageAdapter } from "@automerge/automerge-repo-storage-indexeddb";
 import { SocketIOClientAdapter } from "../network/SocketIOClientAdapter";
+import Keycloak from "keycloak-js";
 
 export default class RepoHelper {
   private static repo: Repo;
@@ -15,9 +16,9 @@ export default class RepoHelper {
   private static network: NetworkAdapterInterface;
   private static storage: StorageAdapterInterface;
 
-  static initialize() {
+  static initialize(keycloak: Keycloak) {
     this.storage = new IndexedDBStorageAdapter();
-    this.network = new SocketIOClientAdapter("http://localhost:3000");
+    this.network = new SocketIOClientAdapter("http://localhost:3000", keycloak);
     this.repo = new Repo({
       network: [this.network],
       storage: this.storage,
