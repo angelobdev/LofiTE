@@ -26,11 +26,6 @@ const keycloak = new Keycloak({
   clientId: "react-client",
 });
 
-// Approfondire:
-// - CRDT (+ schemi)
-// - Secondo prototipo
-// - Analisi preliminare di occupazione di memoria del browser
-
 try {
   keycloak
     .init({
