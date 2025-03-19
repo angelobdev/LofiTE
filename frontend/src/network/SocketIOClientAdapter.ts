@@ -4,6 +4,7 @@ import {
   PeerId,
   PeerMetadata,
 } from "@automerge/automerge-repo/slim";
+import Keycloak from "keycloak-js";
 import io, { Socket } from "socket.io-client";
 import {
   FromClientMessage,
@@ -13,63 +14,72 @@ import {
   JoinMessage,
   LeaveMessage,
 } from "./SocketIOMessages";
-import Keycloak from "keycloak-js";
 
 export class SocketIOClientAdapter extends NetworkAdapter {
   private socket: typeof Socket;
-  private isReady: boolean;
 
   private remotePeerId?: PeerId; // this adapter only connects to one remote client at a time
 
   constructor(url: string, keycloak: Keycloak) {
     super();
 
-    console.log("Init with token: " + keycloak.token);
+    this.peerId = keycloak.subject as PeerId;
 
-    // Init socket with no token
+    // Init socket with token
     this.socket = io(url, {
-      transports: ["polling"],
+      transports: ["websocket"],
       auth: {
         token: keycloak.token,
       },
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
     });
 
-    this.isReady = false;
+    this.socket.binaryType = "arraybuffer";
+
+    // Callbacks
+    this.socket.on("connect", () => {
+      console.log("Connected to server");
+      this.join();
+    });
+
+    this.socket.on("message", (bytes: Uint8Array) => {
+      this.receive(bytes);
+    });
+
+    this.socket.on("disconnect", (reason: string) => {
+      console.log(`Disconnected from server: ${reason}`);
+      this.peerDisconnected();
+    });
   }
 
   connect(peerId: PeerId, peerMetadata?: PeerMetadata): void {
     if (!this.peerId) {
-      // First time connecting
       this.peerId = peerId;
       this.peerMetadata = peerMetadata ?? {};
-    } else {
-      // Reconnecting
-      this.socket.removeEventListener("open", this.onOpen);
-      this.socket.removeEventListener("close", this.onClose);
-      this.socket.removeEventListener("message", this.onMessage);
     }
 
-    this.socket.binaryType = "arraybuffer";
-
-    this.socket.addEventListener("open", this.onOpen);
-    this.socket.addEventListener("close", this.onClose);
-    this.socket.addEventListener("message", this.onMessage);
-
-    // Joining
-    setTimeout(() => this.ready(), 1000);
-    this.join();
+    this.emit("ready", { network: this });
   }
 
   send(message: FromClientMessage): void {
-    // console.log("Sending message: " + JSON.stringify(message));
-    const bytes = cbor.encode(message);
-    this.socket.send(bytes);
+    console.log("Sending message: " + JSON.stringify(message));
+
+    if (this.socket.connected) {
+      // console.log("Sending message: " + JSON.stringify(message));
+      const bytes = cbor.encode(message);
+      this.socket.send(bytes);
+    } else {
+      console.log("Socket not connected, message not sent");
+    }
   }
 
   receive(bytes: Uint8Array): void {
     const message: FromServerMessage = cbor.decode(new Uint8Array(bytes));
 
-    // console.log("Received message: " + JSON.stringify(message));
+    console.log("Received message: " + JSON.stringify(message));
 
     if (bytes.byteLength === 0)
       throw new Error("received a zero-length message");
@@ -78,40 +88,19 @@ export class SocketIOClientAdapter extends NetworkAdapter {
       const { peerMetadata } = message;
       this.peerCandidate(message.senderId, peerMetadata);
     } else if (isErrorMessage(message)) {
-      // console.log(`error: ${message.message}`);
+      console.error(`Message from server: ${message.message}`);
     } else {
       this.emit("message", message);
     }
   }
 
   disconnect(): void {
-    const message: LeaveMessage = { type: "leave", senderId: this.peerId! };
-    this.send(message);
+    this.leave();
+    this.socket.close();
+    this.peerDisconnected();
   }
 
-  // Callbacks
-
-  onOpen = () => {
-    this.join();
-  };
-
-  onClose = () => {
-    // When a socket closes, or disconnects, remove it from the array.
-    if (this.remotePeerId)
-      this.emit("peer-disconnected", { peerId: this.remotePeerId });
-  };
-
-  onMessage = (bytes: Uint8Array) => {
-    this.receive(bytes);
-  };
-
-  // UTILS
-
-  ready() {
-    if (this.isReady) return;
-    this.isReady = true;
-    this.emit("ready", { network: this });
-  }
+  // Messages
 
   join() {
     const message = {
@@ -122,11 +111,26 @@ export class SocketIOClientAdapter extends NetworkAdapter {
     this.send(message);
   }
 
+  leave() {
+    const message: LeaveMessage = {
+      type: "leave",
+      senderId: this.peerId!,
+    };
+    this.send(message);
+  }
+
+  // Events
+
   peerCandidate(remotePeerId: PeerId, peerMetadata: PeerMetadata) {
     this.remotePeerId = remotePeerId;
     this.emit("peer-candidate", {
       peerId: remotePeerId,
       peerMetadata,
     });
+  }
+
+  peerDisconnected() {
+    if (this.remotePeerId)
+      this.emit("peer-disconnected", { peerId: this.remotePeerId });
   }
 }

@@ -26,27 +26,32 @@ const keycloak = new Keycloak({
   clientId: "react-client",
 });
 
+// Approfondire:
+// - CRDT (+ schemi)
+// - Secondo prototipo
+// - Analisi preliminare di occupazione di memoria del browser
+
 try {
-  keycloak.init({ onLoad: "login-required" }).then((authenticated) => {
-    if (!authenticated) {
-      console.error("Failed to authenticate");
-      return;
-    }
+  keycloak
+    .init({
+      onLoad: "check-sso",
+      silentCheckSsoRedirectUri: `${location.origin}/silent-check-sso.html`,
+    })
+    .then(() => {
+      RepoHelper.initialize(keycloak);
 
-    RepoHelper.initialize(keycloak);
-
-    ReactDOM.createRoot(document.getElementById("root")!).render(
-      <React.StrictMode>
-        <AuthProvider {...keycloakConfig}>
-          <RepoContext.Provider value={RepoHelper.getRepo()}>
-            <MantineProvider theme={theme}>
-              <App />
-            </MantineProvider>
-          </RepoContext.Provider>
-        </AuthProvider>
-      </React.StrictMode>
-    );
-  });
+      ReactDOM.createRoot(document.getElementById("root")!).render(
+        <React.StrictMode>
+          <AuthProvider {...keycloakConfig}>
+            <RepoContext.Provider value={RepoHelper.getRepo()}>
+              <MantineProvider theme={theme}>
+                <App />
+              </MantineProvider>
+            </RepoContext.Provider>
+          </AuthProvider>
+        </React.StrictMode>
+      );
+    });
 } catch (error) {
   console.error("Failed to initialize keycloak:", error);
 }

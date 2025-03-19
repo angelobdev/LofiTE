@@ -6,7 +6,11 @@ import {
   PeerMetadata,
 } from "@automerge/automerge-repo";
 import { Server, Socket } from "socket.io";
-import { isJoinMessage, isLeaveMessage } from "./SocketIOMessages";
+import {
+  ErrorMessage,
+  isJoinMessage,
+  isLeaveMessage,
+} from "./SocketIOMessages";
 import { FromServerMessage } from "@automerge/automerge-repo-network-websocket";
 
 // SERVER
@@ -23,21 +27,29 @@ export class SocketIOServerAdapter extends NetworkAdapter {
     this.peerMetadata = peerMetadata;
 
     this.io.on("close", () => {
-      // console.log("Server closed");
+      console.log("Server closed");
       this.disconnect();
     });
 
     this.io.on("connection", (socket) => {
-      // console.log("\n\nSocket connected: " + socket.id);
+      console.log("\n\nSocket connected: " + socket.id);
+
+      if (this.peerIdFromSocket(socket) !== undefined) {
+        console.log("Peer already connected, disconnecting...");
+        socket.send(
+          cbor.encode({ type: "error", message: "Peer already connected" })
+        );
+        socket.disconnect(true);
+        return;
+      }
 
       socket.on("message", (msg: Uint8Array) => {
         this.receive(msg, socket);
       });
 
-      // Just to be sure...
-      socket.on("close", () => {
-        // console.log("Socket disconnected: " + socket.id);
-        this.removeSocket(socket);
+      socket.on("disconnect", () => {
+        console.log("Socket disconnected: " + socket.id);
+        this.disconnectSocket(socket);
       });
 
       this.emit("ready", { network: this });
@@ -45,9 +57,11 @@ export class SocketIOServerAdapter extends NetworkAdapter {
   }
 
   send(message: FromServerMessage): void {
-    // console.log("Sending message: " + message);
+    if (message.type !== "sync") {
+      console.log("Sending message: " + JSON.stringify(message));
+    }
 
-    const socket: Socket = this.clients[message.targetId];
+    const socket: Socket = this.clients.get(message.targetId)!;
     const bytes = cbor.encode(message);
     socket.send(bytes);
   }
@@ -55,16 +69,28 @@ export class SocketIOServerAdapter extends NetworkAdapter {
   receive(msg: Uint8Array, socket: Socket): void {
     const message: Message = cbor.decode(msg);
 
+    if (message.type !== "sync") {
+      console.log("Received message: " + JSON.stringify(message));
+    }
+
     const { senderId } = message;
 
-    // console.log("Received message: " + JSON.stringify(message));
+    // If senderId is not found, send an error message
+    if (!senderId) {
+      const errorMessage: ErrorMessage = {
+        type: "error",
+        message: "Sender ID not found",
+        senderId: this.peerId,
+        targetId: undefined,
+      };
+      socket.send(cbor.encode(errorMessage));
+      return;
+    }
 
     if (isJoinMessage(message)) {
-      // console.log("Some peer is joining");
-
       // If client already exists, disconnect it
       if (this.clients.has(senderId)) {
-        // console.log("Client already exists, disconnecting...");
+        console.log("Client already exists, disconnecting...");
         const existingSocket: Socket = this.clients[senderId];
         if (existingSocket) {
           existingSocket.disconnect(true);
@@ -73,15 +99,14 @@ export class SocketIOServerAdapter extends NetworkAdapter {
         this.emit("peer-disconnected", { peerId: senderId });
       }
 
-      // console.log("Connecting...");
-
       // Let the repo know that we have a new connection.
       this.emit("peer-candidate", {
         peerId: message.senderId,
         peerMetadata: message.peerMetadata,
       });
 
-      this.clients[senderId] = socket;
+      // Add the new client
+      this.clients.set(senderId, socket);
 
       this.send({
         type: "peer",
@@ -90,32 +115,45 @@ export class SocketIOServerAdapter extends NetworkAdapter {
         targetId: senderId,
       });
     } else if (isLeaveMessage(message)) {
-      // console.log("Some peer is leaving");
-
-      // Client is disconnecting
-      const socket: Socket = this.clients[senderId];
+      console.log("Some peer is leaving");
       socket.disconnect(true);
-      this.removeSocket(socket);
     } else {
       this.emit("message", message);
     }
   }
 
   disconnect(): void {
-    this.clients.forEach((socket, pid) => {
+    this.clients.forEach((socket, _) => {
       socket.disconnect(true);
-      this.clients.delete(pid);
     });
   }
 
   // Utilities
 
-  private removeSocket(socket: Socket) {
-    this.clients.forEach((sock, pid) => {
+  private disconnectSocket(socket: Socket) {
+    const peerId = this.peerIdFromSocket(socket);
+
+    if (peerId) {
+      this.removeSocket(socket);
+      this.emit("peer-disconnected", { peerId });
+
+      console.log(`Disconnected socket ${socket.id} (Peer: ${peerId})`);
+    }
+  }
+
+  private peerIdFromSocket(socket: Socket): PeerId | undefined {
+    let peerId: PeerId | undefined = undefined;
+    this.clients.forEach((sock, id) => {
       if (sock.id === socket.id) {
-        this.clients.delete(pid);
+        peerId = id;
         return;
       }
     });
+    return peerId;
+  }
+
+  private removeSocket(socket: Socket) {
+    const peerId = this.peerIdFromSocket(socket);
+    if (peerId) this.clients.delete(peerId);
   }
 }

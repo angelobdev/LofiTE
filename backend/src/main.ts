@@ -41,36 +41,38 @@ server.listen(PORT, () => {
 // Socket.IOs
 
 const io = new Server(server, {
-  transports: ["polling"],
+  transports: ["websocket"],
   cors: { origin: "http://localhost:5173" },
+  connectTimeout: 1000,
+  connectionStateRecovery: {},
 });
 
 // Keycloak middleware
 
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
+// io.use((socket, next) => {
+//   const token = socket.handshake.auth.token;
 
-  if (!token) {
-    console.error("No token provided");
-    return next(new Error("Authentication error"));
-  }
+//   if (!token) {
+//     console.error("No token provided");
+//     return next(new Error("Authentication error"));
+//   }
 
-  const key =
-    "-----BEGIN PUBLIC KEY-----\n" +
-    process.env.KEYCLOAK_PUBLIC_KEY +
-    "\n-----END PUBLIC KEY-----";
+//   const key =
+//     "-----BEGIN PUBLIC KEY-----\n" +
+//     process.env.KEYCLOAK_PUBLIC_KEY +
+//     "\n-----END PUBLIC KEY-----";
 
-  jwt.verify(token, key, (err, decoded) => {
-    if (err) {
-      console.error(err);
-      return next(new Error("Authentication error"));
-    }
+//   jwt.verify(token, key, (err, decoded) => {
+//     if (err) {
+//       console.error(err);
+//       return next(new Error("Authentication error"));
+//     }
 
-    console.log("Decoded user: " + JSON.stringify(decoded));
+//     console.log("Decoded user: " + JSON.stringify(decoded));
 
-    next();
-  });
-});
+//     next();
+//   });
+// });
 
 // AUTOMERGE REPO
 

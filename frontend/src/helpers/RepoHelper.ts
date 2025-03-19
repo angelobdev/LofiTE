@@ -2,6 +2,7 @@ import {
   DocumentId,
   isValidDocumentId,
   NetworkAdapterInterface,
+  PeerId,
   Repo,
   StorageAdapterInterface,
 } from "@automerge/automerge-repo";
@@ -22,6 +23,7 @@ export default class RepoHelper {
     this.repo = new Repo({
       network: [this.network],
       storage: this.storage,
+      peerId: keycloak.subject as PeerId,
     });
   }
 
